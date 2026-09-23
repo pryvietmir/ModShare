@@ -1,0 +1,18 @@
+{
+  "modshare.screen.title": "ModShare",
+  "modshare.screen.checking": "Проверяем моды сервера...",
+  "modshare.screen.summary": "Скачать: %s (%s МБ)    Удалить: %s",
+  "modshare.screen.warning": "Сервер хочет изменить ваши моды. Скачанные моды выполняют код на вашем компьютере — соглашайтесь, только если доверяете серверу.",
+  "modshare.screen.trust_hint": "Сервер %s будет запомнен, и в следующий раз изменения применятся без вопросов.",
+  "modshare.screen.more": "...и ещё %s",
+  "modshare.screen.downloading": "Загрузка %s/%s: %s",
+  "modshare.screen.progress": "%s / %s МБ",
+  "modshare.screen.restart": "Моды готовы. Перезапустите игру, чтобы применить изменения.",
+  "modshare.screen.restart_hint": "Изменения применятся автоматически при закрытии игры.",
+  "modshare.screen.error": "Ошибка синхронизации модов:",
+  "modshare.button.apply": "Применить",
+  "modshare.button.trust_apply": "Доверять и применить",
+  "modshare.button.join_anyway": "Всё равно войти",
+  "modshare.button.quit": "Выйти из игры",
+  "modshare.button.restart": "Перезапустить игру"
+}

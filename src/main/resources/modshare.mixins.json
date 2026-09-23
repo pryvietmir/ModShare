@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "io.github.pryvietmir.modshare.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "StatusResponsePacketMixin"
+  ],
+  "client": [
+    "ConnectScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

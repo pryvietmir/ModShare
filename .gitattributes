@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Shell scripts must keep Unix line endings, batch files Windows ones
+gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary

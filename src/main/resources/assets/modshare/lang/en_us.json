@@ -1,0 +1,18 @@
+{
+  "modshare.screen.title": "ModShare",
+  "modshare.screen.checking": "Checking the server's mods...",
+  "modshare.screen.summary": "Download: %s (%s MB)    Remove: %s",
+  "modshare.screen.warning": "This server wants to change your mods. Downloaded mods run code on your computer - only accept if you trust the server.",
+  "modshare.screen.trust_hint": "%s will be remembered and change your mods without asking next time.",
+  "modshare.screen.more": "...and %s more",
+  "modshare.screen.downloading": "Downloading %s/%s: %s",
+  "modshare.screen.progress": "%s / %s MB",
+  "modshare.screen.restart": "Mods are ready. Restart the game to apply the changes.",
+  "modshare.screen.restart_hint": "They will be applied automatically when the game closes.",
+  "modshare.screen.error": "Mod sync failed:",
+  "modshare.button.apply": "Apply",
+  "modshare.button.trust_apply": "Trust and apply",
+  "modshare.button.join_anyway": "Join anyway",
+  "modshare.button.quit": "Quit game",
+  "modshare.button.restart": "Restart game"
+}

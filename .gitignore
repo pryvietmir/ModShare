@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+out/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Dev runs: worlds, configs, logs and third-party mod jars
+run/
+run-data/
+
+# Generated resources are rebuilt by datagen
+src/generated/resources/.cache/
+
+# OS
+.DS_Store
+Thumbs.db
