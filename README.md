@@ -26,6 +26,8 @@ ModShare uses the same rule as NeoForge to decide who may connect: a mod is need
 2. Open the HTTP port on the server (default `25580`, see below).
 3. Done. Players join as usual.
 
+**Playing with friends without a dedicated server?** Open your singleplayer world to LAN: ModShare starts sharing your mods at that moment. Friends joining over Radmin VPN, ZeroTier, port forwarding and similar need to reach port `25580` of your computer too.
+
 ## Configuration
 
 ### Server: `config/modshare-server.toml`

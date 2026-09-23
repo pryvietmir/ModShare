@@ -19,12 +19,11 @@ public class Modshare {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public Modshare(IEventBus modEventBus, ModContainer modContainer, Dist dist) {
-        if (dist.isDedicatedServer()) {
-            // The dedicated server shares its mods folder over HTTP
-            modContainer.registerConfig(ModConfig.Type.COMMON, ServerConfig.SPEC, "modshare-server.toml");
-            NeoForge.EVENT_BUS.addListener(ServerHooks::onServerStarted);
-            NeoForge.EVENT_BUS.addListener(ServerHooks::onServerStopping);
-        } else {
+        // Dedicated servers share their mods over HTTP, and so do singleplayer worlds opened to LAN
+        modContainer.registerConfig(ModConfig.Type.COMMON, ServerConfig.SPEC, "modshare-server.toml");
+        NeoForge.EVENT_BUS.addListener(ServerHooks::onServerStarted);
+        NeoForge.EVENT_BUS.addListener(ServerHooks::onServerStopping);
+        if (dist.isClient()) {
             // The client syncs its mods folder before joining a server (see ConnectScreenMixin)
             modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC, "modshare-client.toml");
         }

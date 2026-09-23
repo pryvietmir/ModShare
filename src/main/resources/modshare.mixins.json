@@ -7,7 +7,8 @@
     "StatusResponsePacketMixin"
   ],
   "client": [
-    "ConnectScreenMixin"
+    "ConnectScreenMixin",
+    "IntegratedServerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
