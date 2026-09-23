@@ -143,7 +143,11 @@ public class ModSyncScreen extends Screen {
                 Modshare.LOGGER.info("ModShare: ping of {} failed ({})", address.getHost(), e.toString());
             }
             int fallbackPort = ClientConfig.FALLBACK_HTTP_PORT.get();
-            if (info == null && fallbackPort == 0) return null; // not a ModShare server
+            if (info == null && fallbackPort == 0) {
+                Modshare.LOGGER.info("ModShare: {} does not share its mods (no ModShare on the server, or an older version that cannot share from a LAN world); joining without a mod check",
+                        address.getHost() + ":" + address.getPort());
+                return null;
+            }
 
             URI baseUri = info != null ? ModSyncClient.baseUri(info, resolved.get()) : ModSyncClient.baseUri(resolved.get(), fallbackPort);
             ModSyncClient syncClient = new ModSyncClient(baseUri, Duration.ofMillis(timeoutMs));

@@ -15,7 +15,8 @@ public final class ServerConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     public static final ModConfigSpec.BooleanValue ENABLED = BUILDER
-            .comment("Share the server's mods with connecting ModShare clients")
+            .comment("Share the server's mods with connecting ModShare clients.",
+                    "Applies to dedicated servers and to singleplayer worlds opened to LAN.")
             .define("enabled", true);
 
     public static final ModConfigSpec.IntValue HTTP_PORT = BUILDER
