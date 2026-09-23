@@ -51,10 +51,16 @@ public final class ClientConfig {
             .define("backupRemovedMods", true);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> KEEP_MODS = BUILDER
-            .comment("Mods that are never removed, in any mode.",
+            .comment("Mods that are never removed, in any mode. A mod is added when you choose \"Always ignore\" for a removal.",
                     "Each entry matches a mod id (e.g. \"jei\") or the beginning of a jar file name (e.g. \"xaeros_minimap\"), case-insensitive.",
                     "A kept mod is still replaced if the server provides a different version of it.")
             .defineListAllowEmpty("keepMods", List.of(), () -> "", o -> o instanceof String);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> IGNORED_DOWNLOADS = BUILDER
+            .comment("Server mods that are never downloaded. A mod is added when you choose \"Always ignore\" for a download.",
+                    "Each entry matches a mod id or the beginning of a jar file name, case-insensitive.",
+                    "Note: a server may refuse to let you join without a mod it requires.")
+            .defineListAllowEmpty("ignoredDownloads", List.of(), () -> "", o -> o instanceof String);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
