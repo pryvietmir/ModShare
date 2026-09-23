@@ -49,20 +49,24 @@ public final class ModShareHttpServer {
     }
 
     public static ModShareHttpServer start(int port, ServerConfig.ShareMode shareMode,
-                                           List<? extends String> forceSharedMods, List<? extends String> hiddenMods) throws IOException {
+                                           List<? extends String> forceSharedMods, List<? extends String> hiddenMods,
+                                           List<? extends String> excludedMods) throws IOException {
         Set<String> clientMods = ConnectionRequirements.withClientDependencies(ConnectionRequirements.modsNeededOnBothSides());
         Map<String, LocalMod> filesByHash = new HashMap<>();
         List<Manifest.Entry> entries = new ArrayList<>();
         for (LocalMod mod : ModScanner.scanModsDir()) {
-            if (ModMatcher.matches(hiddenMods, mod.fileName(), mod.modIds())) {
+            if (ModMatcher.matches(excludedMods, mod.fileName(), mod.modIds())) {
                 if (Collections.disjoint(mod.modIds(), clientMods)) {
-                    Modshare.LOGGER.info("ModShare: hiding {} (hiddenMods)", mod.fileName());
+                    Modshare.LOGGER.info("ModShare: not sharing {} (excludedMods)", mod.fileName());
                 } else {
-                    Modshare.LOGGER.warn("ModShare: hiding {} (hiddenMods), but clients need it to join - they will be refused unless they install it themselves", mod.fileName());
+                    Modshare.LOGGER.warn("ModShare: not sharing {} (excludedMods), but clients need it to join - they will be refused unless they install it themselves", mod.fileName());
                 }
                 continue;
             }
-            boolean shared = shareMode == ServerConfig.ShareMode.ALL
+            // Hidden mods are always shared: the server wants every client to have them
+            boolean hidden = ModMatcher.matches(hiddenMods, mod.fileName(), mod.modIds());
+            boolean shared = hidden
+                    || shareMode == ServerConfig.ShareMode.ALL
                     || !Collections.disjoint(mod.modIds(), clientMods)
                     || ModMatcher.matches(forceSharedMods, mod.fileName(), mod.modIds());
             if (!shared) {
@@ -70,7 +74,7 @@ public final class ModShareHttpServer {
                 continue;
             }
             if (filesByHash.putIfAbsent(mod.sha256(), mod) == null) {
-                entries.add(new Manifest.Entry(mod.fileName(), mod.sha256(), mod.size(), List.copyOf(mod.modIds())));
+                entries.add(new Manifest.Entry(mod.fileName(), mod.sha256(), mod.size(), List.copyOf(mod.modIds()), hidden));
             }
         }
         byte[] manifestJson = Manifest.GSON.toJson(new Manifest(Manifest.FORMAT_VERSION, entries)).getBytes(StandardCharsets.UTF_8);

@@ -45,7 +45,10 @@ public class ModChangeList extends ObjectSelectionList<ModChangeList.Row> {
         super(minecraft, width, height, y, 14);
         this.plan = plan;
         this.choices = choices;
-        for (Manifest.Entry entry : plan.toDownload()) addEntry(new Row(entry, "+ " + entry.file(), 0x55FF55, sizeOf(entry)));
+        // Hidden mods are installed by the server and never listed
+        for (Manifest.Entry entry : plan.toDownload()) {
+            if (!entry.hidden()) addEntry(new Row(entry, "+ " + entry.file(), 0x55FF55, sizeOf(entry)));
+        }
         for (LocalMod mod : plan.toRemove()) addEntry(new Row(mod, "- " + mod.fileName(), 0xFF5555, ""));
     }
 
@@ -54,14 +57,14 @@ public class ModChangeList extends ObjectSelectionList<ModChangeList.Row> {
         return Math.min(width - 40, 380);
     }
 
-    /** Downloads the player keeps selected. */
-    List<Manifest.Entry> selectedDownloads() {
-        return plan.toDownload().stream().filter(entry -> choices.get(entry) == Choice.APPLY).toList();
+    /** Downloads that will happen: the ones the player keeps on Apply, plus every hidden mod. */
+    public static List<Manifest.Entry> selectedDownloads(SyncPlan plan, Map<Object, Choice> choices) {
+        return plan.toDownload().stream().filter(entry -> entry.hidden() || choices.get(entry) == Choice.APPLY).toList();
     }
 
     /** A removal forced by a selected download of another version of the same mod. */
     boolean isReplaced(Object change) {
-        return change instanceof LocalMod mod && SyncPlan.replacedBy(mod, selectedDownloads());
+        return change instanceof LocalMod mod && SyncPlan.replacedBy(mod, selectedDownloads(plan, choices));
     }
 
     private static String sizeOf(Manifest.Entry entry) {

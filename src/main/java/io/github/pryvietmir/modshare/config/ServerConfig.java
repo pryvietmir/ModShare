@@ -33,7 +33,7 @@ public final class ServerConfig {
     public static final ModConfigSpec.EnumValue<ShareMode> SHARE_MODE = BUILDER
             .comment("AUTO - share only the mods clients need to join (mods with blocks, items, entities or required network channels, and their dependencies).",
                     "       Server-only mods (backups, permissions, world generation tweaks, ...) are detected and kept to the server.",
-                    "ALL  - share every jar in the mods folder except 'hiddenMods'.")
+                    "ALL  - share every jar in the mods folder except 'excludedMods'.")
             .defineEnum("shareMode", ShareMode.AUTO);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> FORCE_SHARED_MODS = BUILDER
@@ -42,11 +42,18 @@ public final class ServerConfig {
             .defineListAllowEmpty("forceSharedMods", List.of(), () -> "", o -> o instanceof String);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> HIDDEN_MODS = BUILDER
-            .comment("Mods hidden from clients: they are never shared and do not appear in the mod list clients receive.",
-                    "Takes priority over 'shareMode' and 'forceSharedMods'.",
-                    "Each entry matches a mod id (e.g. \"ftbbackups2\") or the beginning of a jar file name (e.g. \"ftb-backups\"), case-insensitive.",
-                    "Note: hiding a mod that adds blocks, items or required network channels means clients cannot join without it.")
+            .comment("Mods clients install silently, without showing them in the list of changes (e.g. libraries).",
+                    "They are always shared. Clients install them silently only from servers they trust:",
+                    "the first time, they are mentioned on the confirmation screen and the player has to trust the server.",
+                    "Each entry matches a mod id (e.g. \"kotlinforforge\") or the beginning of a jar file name, case-insensitive.")
             .defineListAllowEmpty("hiddenMods", List.of(), () -> "", o -> o instanceof String);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> EXCLUDED_MODS = BUILDER
+            .comment("Mods that are never shared and do not appear in the mod list clients receive (e.g. server-only mods AUTO misses).",
+                    "Takes priority over every other option.",
+                    "Each entry matches a mod id (e.g. \"ftbbackups2\") or the beginning of a jar file name (e.g. \"ftb-backups\"), case-insensitive.",
+                    "Note: excluding a mod that adds blocks, items or required network channels means clients cannot join without it.")
+            .defineListAllowEmpty("excludedMods", List.of(), () -> "", o -> o instanceof String);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 

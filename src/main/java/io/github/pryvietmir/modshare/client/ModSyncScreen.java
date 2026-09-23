@@ -83,7 +83,7 @@ public class ModSyncScreen extends Screen {
                 addRenderableWidget(new ModChangeList(minecraft, width, Math.max(LINE_HEIGHT * 3, y - 6 - listTop), listTop, plan, choices));
                 addButtons(y,
                         Button.builder(Component.translatable("modshare.button.select_all"), b -> choices.replaceAll((change, choice) -> ModChangeList.Choice.APPLY)),
-                        Button.builder(Component.translatable(trusted ? "modshare.button.apply" : "modshare.button.trust_apply"), b -> applySelection()),
+                        Button.builder(Component.translatable(needsTrust() ? "modshare.button.trust_apply" : "modshare.button.apply"), b -> applySelection()),
                         Button.builder(Component.translatable("modshare.button.join_anyway"), b -> {
                             rememberIgnored();
                             join();
@@ -130,10 +130,22 @@ public class ModSyncScreen extends Screen {
         trusted = true;
     }
 
-    /** Applies only the changes left on "Apply", plus removals forced by selected downloads, and remembers "Always ignore". */
+    private List<Manifest.Entry> hiddenDownloads() {
+        return plan.toDownload().stream().filter(Manifest.Entry::hidden).toList();
+    }
+
+    /** Hidden mods install silently only from trusted servers; the first time the player has to trust the server. */
+    private boolean needsTrust() {
+        return !trusted && !hiddenDownloads().isEmpty();
+    }
+
+    /**
+     * Applies the changes left on "Apply" together with every hidden mod, plus removals forced by those downloads,
+     * and remembers "Always ignore".
+     */
     private void applySelection() {
         rememberIgnored();
-        List<Manifest.Entry> downloads = plan.toDownload().stream().filter(entry -> choices.get(entry) == ModChangeList.Choice.APPLY).toList();
+        List<Manifest.Entry> downloads = ModChangeList.selectedDownloads(plan, choices);
         List<LocalMod> removals = plan.toRemove().stream()
                 .filter(mod -> choices.get(mod) == ModChangeList.Choice.APPLY || SyncPlan.replacedBy(mod, downloads))
                 .toList();
@@ -142,7 +154,7 @@ public class ModSyncScreen extends Screen {
             join();
             return;
         }
-        if (!trusted) trust();
+        if (needsTrust()) trust();
         plan = selected;
         startDownload();
     }
@@ -151,7 +163,7 @@ public class ModSyncScreen extends Screen {
     private void rememberIgnored() {
         List<String> ignoredDownloads = new ArrayList<>(ClientConfig.IGNORED_DOWNLOADS.get());
         List<String> keepMods = new ArrayList<>(ClientConfig.KEEP_MODS.get());
-        List<Manifest.Entry> downloads = plan.toDownload().stream().filter(entry -> choices.get(entry) == ModChangeList.Choice.APPLY).toList();
+        List<Manifest.Entry> downloads = ModChangeList.selectedDownloads(plan, choices);
         for (Manifest.Entry entry : plan.toDownload()) {
             if (choices.get(entry) == ModChangeList.Choice.IGNORE) ignoredDownloads.add(ignoreKey(entry.file(), entry.modIds()));
         }
@@ -218,14 +230,15 @@ public class ModSyncScreen extends Screen {
             client = result.client();
             plan = result.plan();
             choices.clear();
-            plan.toDownload().forEach(entry -> choices.put(entry, ModChangeList.Choice.APPLY));
+            plan.toDownload().stream().filter(entry -> !entry.hidden()).forEach(entry -> choices.put(entry, ModChangeList.Choice.APPLY));
             plan.toRemove().forEach(mod -> choices.put(mod, ModChangeList.Choice.APPLY));
-            // Installing mods runs the server's code and removing them can wipe the mods folder: both need trust
             trusted = isTrusted();
-            if (ClientConfig.CONFIRM_CHANGES.get() || !trusted) {
-                setState(State.CONFIRM);
-            } else {
+            // Every change the player can choose is listed; only hidden mods from a trusted server install without the list
+            boolean onlyHidden = plan.toRemove().isEmpty() && plan.toDownload().stream().allMatch(Manifest.Entry::hidden);
+            if (onlyHidden && trusted) {
                 startDownload();
+            } else {
+                setState(State.CONFIRM);
             }
         });
     }
@@ -329,13 +342,19 @@ public class ModSyncScreen extends Screen {
     /** The text above the change list; the list itself is a widget placed below it in init(). */
     private List<Component> planHeader() {
         List<Component> paragraphs = new ArrayList<>();
+        List<Manifest.Entry> hidden = hiddenDownloads();
+        List<Manifest.Entry> visible = plan.toDownload().stream().filter(entry -> !entry.hidden()).toList();
         paragraphs.add(Component.translatable("modshare.screen.summary",
-                plan.toDownload().size(), megabytes(plan.downloadSize()), plan.toRemove().size()).withColor(WHITE));
-        if (!trusted) {
-            paragraphs.add(Component.translatable("modshare.screen.warning").withColor(YELLOW));
-            paragraphs.add(Component.translatable("modshare.screen.trust_hint", serverKey()).withColor(GRAY));
+                visible.size(), megabytes(visible.stream().mapToLong(Manifest.Entry::size).sum()), plan.toRemove().size()).withColor(WHITE));
+        if (!hidden.isEmpty()) {
+            paragraphs.add(Component.translatable("modshare.screen.hidden",
+                    hidden.size(), megabytes(hidden.stream().mapToLong(Manifest.Entry::size).sum())).withColor(GRAY));
         }
-        paragraphs.add(Component.translatable("modshare.screen.choice_hint").withColor(GRAY));
+        if (!trusted && !plan.toDownload().isEmpty()) paragraphs.add(Component.translatable("modshare.screen.warning").withColor(YELLOW));
+        if (needsTrust()) paragraphs.add(Component.translatable("modshare.screen.trust_hint", serverKey()).withColor(GRAY));
+        if (!visible.isEmpty() || !plan.toRemove().isEmpty()) {
+            paragraphs.add(Component.translatable("modshare.screen.choice_hint").withColor(GRAY));
+        }
         return paragraphs;
     }
 

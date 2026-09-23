@@ -43,7 +43,7 @@ public final class ServerHooks {
         int port = ServerConfig.HTTP_PORT.get();
         try {
             httpServer = ModShareHttpServer.start(port, ServerConfig.SHARE_MODE.get(),
-                    ServerConfig.FORCE_SHARED_MODS.get(), ServerConfig.HIDDEN_MODS.get());
+                    ServerConfig.FORCE_SHARED_MODS.get(), ServerConfig.HIDDEN_MODS.get(), ServerConfig.EXCLUDED_MODS.get());
         } catch (Exception e) {
             Modshare.LOGGER.error("ModShare: failed to start the HTTP server on port {}", port, e);
             return;
