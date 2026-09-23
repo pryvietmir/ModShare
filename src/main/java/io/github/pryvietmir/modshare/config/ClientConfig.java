@@ -20,13 +20,9 @@ public final class ClientConfig {
             .comment("Check the server's mod list before joining a server")
             .define("enabled", true);
 
-    public static final ModConfigSpec.BooleanValue CONFIRM_CHANGES = BUILDER
-            .comment("Always show the list of mods to download and remove and ask before changing anything, even on trusted servers.",
-                    "When false, you are asked only the first time a server wants to install mods (see 'trustedServers').")
-            .define("confirmChanges", false);
-
     public static final ModConfigSpec.ConfigValue<List<? extends String>> TRUSTED_SERVERS = BUILDER
-            .comment("Servers allowed to install and remove mods without asking, as \"host:port\". A server is added when you press \"Trust and apply\".",
+            .comment("Servers allowed to install their hidden mods (libraries and other mods the server installs for you) without asking, as \"host:port\".",
+                    "A server is added when you press \"Trust and apply\". Other changes are always listed for you to choose.",
                     "Downloaded mods run code on your computer: remove a server from this list if you no longer trust it.")
             .defineListAllowEmpty("trustedServers", List.of(), () -> "", o -> o instanceof String);
 

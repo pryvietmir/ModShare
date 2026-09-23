@@ -11,7 +11,11 @@ public record Manifest(int formatVersion, List<Entry> mods) {
     public static final Gson GSON = new Gson();
     public static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
 
-    public record Entry(String file, String sha256, long size, List<String> modIds) {
+    /**
+     * @param hidden the server installs this mod silently instead of listing it for the player to choose
+     *               (absent in manifests from older servers, which Gson reads as false)
+     */
+    public record Entry(String file, String sha256, long size, List<String> modIds, boolean hidden) {
         public boolean isValid() {
             return file != null && sha256 != null && SHA256.matcher(sha256).matches() && size >= 0 && modIds != null;
         }
