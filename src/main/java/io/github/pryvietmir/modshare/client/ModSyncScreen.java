@@ -24,8 +24,11 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
@@ -36,7 +39,6 @@ public class ModSyncScreen extends Screen {
 
     private static final int WHITE = 0xFFFFFF;
     private static final int GRAY = 0xAAAAAA;
-    private static final int GREEN = 0x55FF55;
     private static final int RED = 0xFF5555;
     private static final int YELLOW = 0xFFFF55;
     private static final int LINE_HEIGHT = 11;
@@ -52,6 +54,8 @@ public class ModSyncScreen extends Screen {
     private SyncPlan plan;
     /** Whether the server may change mods without asking; evaluated once when the plan is ready */
     private boolean trusted;
+    /** The player's choice for each change of the plan (Manifest.Entry or LocalMod) */
+    private final Map<Object, ModChangeList.Choice> choices = new HashMap<>();
     private ModSyncClient.Progress progress;
     private Component error = Component.empty();
 
@@ -74,15 +78,18 @@ public class ModSyncScreen extends Screen {
         int y = height - 30;
         switch (state) {
             case CHECKING -> addButtons(y, Button.builder(CommonComponents.GUI_CANCEL, b -> onClose()));
-            case CONFIRM -> addButtons(y,
-                    trusted
-                            ? Button.builder(Component.translatable("modshare.button.apply"), b -> startDownload())
-                            : Button.builder(Component.translatable("modshare.button.trust_apply"), b -> {
-                                trust();
-                                startDownload();
-                            }),
-                    Button.builder(Component.translatable("modshare.button.join_anyway"), b -> join()),
-                    Button.builder(CommonComponents.GUI_CANCEL, b -> onClose()));
+            case CONFIRM -> {
+                int listTop = planHeaderBottom();
+                addRenderableWidget(new ModChangeList(minecraft, width, Math.max(LINE_HEIGHT * 3, y - 6 - listTop), listTop, plan, choices));
+                addButtons(y,
+                        Button.builder(Component.translatable("modshare.button.select_all"), b -> choices.replaceAll((change, choice) -> ModChangeList.Choice.APPLY)),
+                        Button.builder(Component.translatable(trusted ? "modshare.button.apply" : "modshare.button.trust_apply"), b -> applySelection()),
+                        Button.builder(Component.translatable("modshare.button.join_anyway"), b -> {
+                            rememberIgnored();
+                            join();
+                        }),
+                        Button.builder(CommonComponents.GUI_CANCEL, b -> onClose()));
+            }
             case DOWNLOADING -> addButtons(y, Button.builder(CommonComponents.GUI_CANCEL, b -> onClose()));
             case RESTART_REQUIRED -> addButtons(y,
                     ModSyncGate.canRestart()
@@ -96,8 +103,8 @@ public class ModSyncScreen extends Screen {
     }
 
     private void addButtons(int y, Button.Builder... builders) {
-        int width = 110;
         int gap = 6;
+        int width = Math.min(110, (this.width - 20 - (builders.length - 1) * gap) / builders.length);
         int x = (this.width - (builders.length * width + (builders.length - 1) * gap)) / 2;
         for (Button.Builder builder : builders) {
             addRenderableWidget(builder.bounds(x, y, width, 20).build());
@@ -121,6 +128,45 @@ public class ModSyncScreen extends Screen {
         ClientConfig.TRUSTED_SERVERS.set(trustedServers);
         ClientConfig.SPEC.save();
         trusted = true;
+    }
+
+    /** Applies only the changes left on "Apply", plus removals forced by selected downloads, and remembers "Always ignore". */
+    private void applySelection() {
+        rememberIgnored();
+        List<Manifest.Entry> downloads = plan.toDownload().stream().filter(entry -> choices.get(entry) == ModChangeList.Choice.APPLY).toList();
+        List<LocalMod> removals = plan.toRemove().stream()
+                .filter(mod -> choices.get(mod) == ModChangeList.Choice.APPLY || SyncPlan.replacedBy(mod, downloads))
+                .toList();
+        SyncPlan selected = new SyncPlan(downloads, removals);
+        if (selected.isEmpty()) {
+            join();
+            return;
+        }
+        if (!trusted) trust();
+        plan = selected;
+        startDownload();
+    }
+
+    /** Saves "Always ignore" choices: ignored downloads to ignoredDownloads, ignored removals to keepMods. */
+    private void rememberIgnored() {
+        List<String> ignoredDownloads = new ArrayList<>(ClientConfig.IGNORED_DOWNLOADS.get());
+        List<String> keepMods = new ArrayList<>(ClientConfig.KEEP_MODS.get());
+        List<Manifest.Entry> downloads = plan.toDownload().stream().filter(entry -> choices.get(entry) == ModChangeList.Choice.APPLY).toList();
+        for (Manifest.Entry entry : plan.toDownload()) {
+            if (choices.get(entry) == ModChangeList.Choice.IGNORE) ignoredDownloads.add(ignoreKey(entry.file(), entry.modIds()));
+        }
+        for (LocalMod mod : plan.toRemove()) {
+            if (choices.get(mod) == ModChangeList.Choice.IGNORE && !SyncPlan.replacedBy(mod, downloads)) keepMods.add(ignoreKey(mod.fileName(), mod.modIds()));
+        }
+        if (ignoredDownloads.size() == ClientConfig.IGNORED_DOWNLOADS.get().size() && keepMods.size() == ClientConfig.KEEP_MODS.get().size()) return;
+        ClientConfig.IGNORED_DOWNLOADS.set(ignoredDownloads);
+        ClientConfig.KEEP_MODS.set(keepMods);
+        ClientConfig.SPEC.save();
+    }
+
+    /** A mod is remembered by its mod id, so the choice survives version updates; jars without one by file name. */
+    private static String ignoreKey(String fileName, Collection<String> modIds) {
+        return modIds.isEmpty() ? fileName : modIds.stream().sorted().findFirst().orElseThrow();
     }
 
     private void setState(State state) {
@@ -162,7 +208,7 @@ public class ModSyncScreen extends Screen {
 
             List<LocalMod> local = ModScanner.scanModsDir();
             SyncPlan syncPlan = SyncPlan.compute(manifest, local, ClientConfig.REMOVE_MODE.get(), ClientConfig.KEEP_MODS.get(),
-                    ConnectionRequirements.modsNeededOnBothSides());
+                    ClientConfig.IGNORED_DOWNLOADS.get(), ConnectionRequirements.modsNeededOnBothSides());
             return new CheckResult(syncClient, syncPlan);
         }, result -> {
             if (result == null || result.plan().isEmpty()) {
@@ -171,6 +217,9 @@ public class ModSyncScreen extends Screen {
             }
             client = result.client();
             plan = result.plan();
+            choices.clear();
+            plan.toDownload().forEach(entry -> choices.put(entry, ModChangeList.Choice.APPLY));
+            plan.toRemove().forEach(mod -> choices.put(mod, ModChangeList.Choice.APPLY));
             // Installing mods runs the server's code and removing them can wipe the mods folder: both need trust
             trusted = isTrusted();
             if (ClientConfig.CONFIRM_CHANGES.get() || !trusted) {
@@ -277,27 +326,28 @@ public class ModSyncScreen extends Screen {
         return y;
     }
 
-    private void renderPlan(GuiGraphics graphics, int centerX) {
-        int top = drawWrapped(graphics, Component.translatable("modshare.screen.summary",
-                plan.toDownload().size(), megabytes(plan.downloadSize()), plan.toRemove().size()), centerX, 32, WHITE);
+    /** The text above the change list; the list itself is a widget placed below it in init(). */
+    private List<Component> planHeader() {
+        List<Component> paragraphs = new ArrayList<>();
+        paragraphs.add(Component.translatable("modshare.screen.summary",
+                plan.toDownload().size(), megabytes(plan.downloadSize()), plan.toRemove().size()).withColor(WHITE));
         if (!trusted) {
-            top = drawWrapped(graphics, Component.translatable("modshare.screen.warning"), centerX, top + 3, YELLOW);
-            top = drawWrapped(graphics, Component.translatable("modshare.screen.trust_hint", serverKey()), centerX, top + 1, GRAY);
+            paragraphs.add(Component.translatable("modshare.screen.warning").withColor(YELLOW));
+            paragraphs.add(Component.translatable("modshare.screen.trust_hint", serverKey()).withColor(GRAY));
         }
-        top += 7;
+        paragraphs.add(Component.translatable("modshare.screen.choice_hint").withColor(GRAY));
+        return paragraphs;
+    }
 
-        List<Component> lines = new ArrayList<>();
-        for (Manifest.Entry entry : plan.toDownload()) lines.add(Component.literal("+ " + entry.file()).withColor(GREEN));
-        for (LocalMod mod : plan.toRemove()) lines.add(Component.literal("- " + mod.fileName()).withColor(RED));
+    private int planHeaderBottom() {
+        int y = 32;
+        for (Component paragraph : planHeader()) y += font.split(paragraph, width - 40).size() * LINE_HEIGHT + 3;
+        return y + 2;
+    }
 
-        int maxLines = Math.max(1, (height - 40 - top) / LINE_HEIGHT);
-        int shown = lines.size() > maxLines ? maxLines - 1 : lines.size();
-        for (int i = 0; i < shown; i++) {
-            graphics.drawCenteredString(font, lines.get(i), centerX, top + i * LINE_HEIGHT, WHITE);
-        }
-        if (shown < lines.size()) {
-            graphics.drawCenteredString(font, Component.translatable("modshare.screen.more", lines.size() - shown), centerX, top + shown * LINE_HEIGHT, GRAY);
-        }
+    private void renderPlan(GuiGraphics graphics, int centerX) {
+        int y = 32;
+        for (Component paragraph : planHeader()) y = drawWrapped(graphics, paragraph, centerX, y, WHITE) + 3;
     }
 
     private void renderProgress(GuiGraphics graphics, int centerX) {
